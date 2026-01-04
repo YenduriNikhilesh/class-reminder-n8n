@@ -1,0 +1,228 @@
+{
+  "name": "Time Table Bot",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "7591659f-d03f-48c1-89e0-c900d510ac59",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== FORCE IST TIME =====\nconst now = new Date(\n  new Date().toLocaleString(\"en-US\", { timeZone: \"Asia/Kolkata\" })\n);\n\nconst day = now.toLocaleString(\"en-US\", {\n  weekday: \"long\",\n  timeZone: \"Asia/Kolkata\"\n});\n\nconst currentMinutes = now.getHours() * 60 + now.getMinutes();\n\n// ===== PERIOD → TIME MAP =====\nconst periodTime = {\n  1: \"07:10\",\n  2: \"08:00\",\n  3: \"09:20\",\n  4: \"10:10\",\n  5: \"11:10\",\n  6: \"12:00\",\n  8: \"13:50\",\n  9: \"14:50\",\n  10: \"15:50\",\n  11: \"16:40\",\n};\n\n// ===== TIMETABLE =====\nconst timetable = {\n  Monday: {\n    1: { subject: \"24IN2202-P\", room: \"R004A\" },\n    2: { subject: \"24IN2202-P\", room: \"R004A\" },\n    3: { subject: \"24CS2202-L\", room: \"C208\" },\n    4: { subject: \"24CS2202-L\", room: \"C208\" },\n    5: { subject: \"24CS2204-P\", room: \"C019\" },\n    6: { subject: \"24CS2204-P\", room: \"C019\" },\n    8: { subject: \"24CS2203-L\", room: \"C221B1\" },\n    9: { subject: \"24SDCS02-L\", room: \"C510\" },\n    10:{ subject: \"24SP2110-S\", room: \"LAWN TENNIS COURT\" },\n    11:{ subject: \"24SP2110-S\", room: \"LAWN TENNIS COURT\" }\n  },\n\n  Tuesday: {\n    3: { subject: \"24CS2204-L\", room: \"C008\" },\n    4: { subject: \"24CS2204-L\", room: \"C008\" },\n    5: { subject: \"24CS2221F-L\", room: \"C309\" },\n    6: { subject: \"24CS2221F-L\", room: \"C309\" },\n    9: { subject: \"24CS2202-L\", room: \"C307\" }\n  },\n\n  Wednesday: {\n    1: { subject: \"24IN2202-L\", room: \"C110\" },\n    2: { subject: \"24IN2202-L\", room: \"C110\" },\n    3: { subject: \"24SDCS02-S\", room: \"R712A1\" },\n    4: { subject: \"24SDCS02-S\", room: \"R712A1\" },\n    5: { subject: \"24MT2019-T\", room: \"C421B1\" },\n    6: { subject: \"24MT2019-T\", room: \"C421B1\" },\n    8: { subject: \"24CS2203-S\", room: \"C511\" },\n    9: { subject: \"24CS2203-S\", room: \"C511\" },\n    10:{ subject: \"24CS2204-S\", room: \"C324A\" },\n    11:{ subject: \"24CS2204-S\", room: \"C324A\" }\n  },\n\n  Thursday: {\n    3: { subject: \"24CS2203-P\", room: \"C317A\" },\n    4: { subject: \"24CS2203-P\", room: \"C317A\" },\n    5: { subject: \"24CS2202-P\", room: \"C419B\" },\n    6: { subject: \"24CS2202-P\", room: \"C419B\" },\n    8: { subject: \"24SDCS02-S\", room: \"C506\" },\n    9: { subject: \"24SDCS02-S\", room: \"C506\" }\n  },\n\n  Friday: {\n    3: { subject: \"24CS2221F-P\", room: \"C419B\" },\n    4: { subject: \"24CS2221F-P\", room: \"C419B\" },\n    5: { subject: \"24MT2019-L\", room: \"C108\" },\n    6: { subject: \"24MT2019-L\", room: \"C108\" },\n    8: { subject: \"24IN2202-L\", room: \"C410\" },\n    9: { subject: \"24CS2204-L\", room: \"C507\" },\n    10:{ subject: \"24CS2203-L\", room: \"C221B1\" },\n    11:{ subject: \"24CS2203-L\", room: \"C221B1\" }\n  }\n};\n\n// ===== EXIT IF NO CLASSES TODAY =====\nif (!timetable[day]) return [];\n\nconst today = timetable[day];\n\n// ===== MAIN LOGIC =====\nfor (const periodStr of Object.keys(today)) {\n  const period = Number(periodStr);\n  const startTime = periodTime[period];\n  if (!startTime) continue;\n\n  const [h, m] = startTime.split(\":\").map(Number);\n  const classMinutes = h * 60 + m;\n\n  // ⏰ SAFE 10-MINUTE WINDOW (9–10 mins before)\n if (classMinutes - currentMinutes === 20) {\n    const currentClass = today[period];\n\n    // 🛑 Prevent duplicate alerts for 100-min classes\n    const prevClass = today[period - 1];\n    if (\n      prevClass &&\n      prevClass.subject === currentClass.subject &&\n      prevClass.room === currentClass.room\n    ) {\n      return [];\n    }\n\n    const nextClass = today[period + 1];\n    const duration =\n      nextClass &&\n      nextClass.subject === currentClass.subject &&\n      nextClass.room === currentClass.room\n        ? \"100 minutes\"\n        : \"50 minutes\";\n\n    return [{\n      json: {\n        message:\n`📢 Class Reminder (IST)\n\n📘 Subject: ${currentClass.subject}\n🏫 Room: ${currentClass.room}\n⏰ Starts at: ${startTime}\n🕒 Duration: ${duration}\n\n⏳ Alert sent 10 minutes before`\n      }\n    }];\n  }\n}\n\nreturn [];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "9ee1c2bd-bbcd-47e6-a376-db42f39d5be7",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7f60a644-a96c-4180-a2f3-56b99b73f909",
+              "leftValue": "={{$json.message}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "4989ed06-f155-4915-814c-e266f66443dc",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "chatId": "6899858791",
+        "text": "={{$json.message}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        816,
+        -16
+      ],
+      "id": "f8da0f53-5408-49be-9ce9-87fdca1e7978",
+      "name": "Send a text message",
+      "webhookId": "5d4dbcb8-5a7c-4a4a-9073-f2c793c200a3",
+      "credentials": {
+        "telegramApi": {
+          "id": "k7wvWnEDc9fH6BHg",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        192
+      ],
+      "id": "e3e3c6db-089e-4571-899d-0657fb003dbd",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData(\"global\");\n\n// Clear all previous alerts\nfor (const key in staticData) {\n  delete staticData[key];\n}\n\nreturn [{\n  json: {\n    message: \"🔄 Daily reset completed. Ready for new classes!\"\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        192
+      ],
+      "id": "7f9a2427-b9dc-4081-93a1-8538c585e02b",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -16,
+        400
+      ],
+      "id": "babfe01a-b608-4804-b276-048703c55bf3",
+      "name": "Schedule Trigger2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date(\n  new Date().toLocaleString(\"en-US\", { timeZone: \"Asia/Kolkata\" })\n);\n\nconst day = now.toLocaleString(\"en-US\", { weekday: \"long\" });\n\nconst timetable = {\n  Monday: [\"09:20 - 24CS2202-L\", \"10:10 - 24CS2202-L\"],\n  Tuesday: [\"11:10 - 24CS2221F-L\"],\n  Wednesday: [\"15:50 - 24CS2204-S\"]\n};\n\nconst classes = timetable[day];\n\nif (!classes) {\n  return [{\n    json: {\n      message: `📅 TODAY (${day})\n\n🎉 No classes today!`\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    message: `📅 TODAY'S CLASSES (${day})\n\n${classes.map(c => \"• \" + c).join(\"\\n\")}`\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        400
+      ],
+      "id": "5074504c-349f-4b3f-b585-a32a961c2559",
+      "name": "Code in JavaScript2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "af62f84d-52cb-4ef9-8c8f-5f68ca460376",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6085206176f8223b7b469a6e081635d8e7be68a72545d788e302876740d8f90d"
+  },
+  "id": "nSxaVUKi0N25yFhI",
+  "tags": []
+}
